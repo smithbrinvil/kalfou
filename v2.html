@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ColorHarmony Pro - 60-30-10 Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: #0a0a0a;
+            color: #fff;
+            overflow-x: hidden;
+        }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        .color-card { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .color-card:hover { transform: translateY(-4px); }
+        .preview-section { transition: background-color 0.6s ease; }
+        
+        .grain {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 50; opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+        
+        .btn-shine { position: relative; overflow: hidden; }
+        .btn-shine::after {
+            content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+            background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 100%);
+            transform: rotate(30deg) translateX(-100%); transition: transform 0.6s;
+        }
+        .btn-shine:hover::after { transform: rotate(30deg) translateX(100%); }
+        
+        .lock-btn { transition: all 0.2s ease; }
+        .lock-btn.locked { background: rgba(255,255,255,0.2); color: #fff; }
+        .lock-btn.locked svg { fill: currentColor; }
+        
+        .tab-btn { transition: all 0.3s ease; border-bottom: 2px solid transparent; }
+        .tab-btn.active { border-bottom-color: #fff; color: #fff; }
+        
+        .toast {
+            position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(100%);
+            padding: 0.75rem 1.5rem; background: #fff; color: #000; border-radius: 9999px;
+            font-weight: 500; opacity: 0; pointer-events: none; z-index: 100;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+        }
+        .toast.show { animation: toastSlide 0.3s ease forwards; }
+        @keyframes toastSlide {
+            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+        
+        select {
+            appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1.5em;
+        }
+
+        /* Nouveaux styles */
+        .history-item {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .history-item:hover {
+            transform: scale(1.05);
+        }
+        .slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: rgba(255,255,255,0.1);
+            outline: none;
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        .daltonism-filter {
+            transition: filter 0.3s ease;
+        }
+        .gradient-preview {
+            background: linear-gradient(90deg, var(--c1) 0%, var(--c2) 50%, var(--c3) 100%);
+        }
+        .drop-zone {
+            border: 2px dashed rgba(255,255,255,0.2);
+            transition: all 0.3s ease;
+        }
+        .drop-zone.dragover {
+            border-color: #fff;
+            background: rgba(255,255,255,0.05);
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 200;
+            backdrop-filter: blur(10px);
+        }
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .fav-btn {
+            transition: all 0.2s;
+        }
+        .fav-btn.active {
+            color: #ef4444;
+            transform: scale(1.1);
+        }
+        .comparison-view {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+    </style>
+</head>
+<body class="min-h-screen overflow-x-hidden">
+    <div class="grain"></div>
+    
+    <header class="relative z-10 border-b border-white/10 backdrop-blur-md bg-black/20">
+        <div class="max-w-7xl mx-auto px-6 py-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500 via-purple-500 to-cyan-500 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight">ColorHarmony Pro</h1>
+                    <p class="text-xs text-white/50 uppercase tracking-widest">60-30-10 Rule Engine</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-4 flex-wrap justify-center">
+                <select id="harmony-select" class="bg-white/5 border border-white/10 rounded-full px-4 py-2 text-sm focus:outline-none focus:border-white/30 pr-10">
+                    <option value="analogous">Analogue</option>
+                    <option value="complementary">Complémentaire</option>
+                    <option value="splitComplementary" selected>Split-Complémentaire</option>
+                    <option value="monochromatic">Monochromatique</option>
+                    <option value="triadic">Triadique</option>
+                    <option value="tetradic">Tétradique</option>
+                </select>
+                
+                <button onclick="generatePalette()" class="btn-shine group relative px-6 py-3 bg-white text-black rounded-full font-semibold hover:scale-105 transition-transform flex items-center gap-2">
+                    <svg class="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    Randomize
+                </button>
+
+                <button onclick="toggleComparison()" class="px-4 py-3 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-colors" title="Comparer">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                    </svg>
+                </button>
+
+                <button onclick="openFavorites()" class="px-4 py-3 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-colors relative" title="Favoris">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                    </svg>
+                    <span id="fav-count" class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center hidden">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="relative z-10 max-w-7xl mx-auto px-6 py-12 space-y-12">
+        
+        <!-- Section Aperçu -->
+        <section class="space-y-6">
+            <div class="flex items-center justify-between flex-wrap gap-4">
+                <h2 class="text-xl font-light text-white/80">Aperçu visuel <span class="text-white/40 text-sm ml-2">Règle 60-30-10</span></h2>
+                <div class="flex gap-4 text-sm text-white/40">
+                    <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-white/60"></span>60% Dominant</span>
+                    <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-white/40"></span>30% Secondaire</span>
+                    <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-white/20"></span>10% Accent</span>
+                </div>
+            </div>
+            
+            <div class="rounded-3xl overflow-hidden shadow-2xl border border-white/10 relative" id="main-preview">
+                <div id="preview-dominant" class="preview-section h-64 flex items-center justify-center relative daltonism-filter">
+                    <div class="text-center space-y-4 p-8">
+                        <h3 class="text-4xl font-bold tracking-tight" id="text-on-dominant">Titre Principal</h3>
+                        <p class="text-lg opacity-80 max-w-md" id="text-on-dominant-sub">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+                        <button id="btn-on-dominant" class="px-6 py-2 rounded-full font-medium transition-all hover:scale-105">Action</button>
+                    </div>
+                    <span class="absolute top-6 left-6 text-xs font-mono uppercase tracking-widest opacity-50">60% Dominant</span>
+                    
+                    <button onclick="toggleFavoriteCurrent()" class="fav-btn absolute top-6 right-6 p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="flex flex-col md:flex-row">
+                    <div id="preview-secondary" class="preview-section w-full md:w-[30%] h-48 flex items-center justify-center relative daltonism-filter">
+                        <span class="text-lg font-medium" id="text-on-secondary">Sidebar</span>
+                        <span class="absolute top-4 left-4 text-xs font-mono uppercase tracking-widest opacity-50">30%</span>
+                    </div>
+                    
+                    <div id="preview-accent-container" class="preview-section w-full md:w-[70%] h-48 flex items-center justify-center gap-4 relative bg-black/5 daltonism-filter">
+                        <div class="space-y-2 text-right">
+                            <div class="h-2 w-32 bg-current rounded opacity-20"></div>
+                            <div class="h-2 w-24 bg-current rounded opacity-20"></div>
+                        </div>
+                        <button id="preview-accent" class="px-8 py-3 rounded-full font-bold text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all">
+                            CTA Principal
+                        </button>
+                        <span class="absolute top-4 right-4 text-xs font-mono uppercase tracking-widest opacity-50">10% Accent</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contrôles Daltonisme -->
+            <div class="flex gap-2 justify-center flex-wrap">
+                <button onclick="setDaltonism('normal')" class="px-4 py-2 rounded-full bg-white/10 text-sm hover:bg-white/20 transition-colors daltonism-btn active" data-mode="normal">Normal</button>
+                <button onclick="setDaltonism('protanopia')" class="px-4 py-2 rounded-full bg-white/5 text-sm hover:bg-white/20 transition-colors daltonism-btn" data-mode="protanopia">Protanopie</button>
+                <button onclick="setDaltonism('deuteranopia')" class="px-4 py-2 rounded-full bg-white/5 text-sm hover:bg-white/20 transition-colors daltonism-btn" data-mode="deuteranopia">Deutéranopie</button>
+                <button onclick="setDaltonism('tritanopia')" class="px-4 py-2 rounded-full bg-white/5 text-sm hover:bg-white/20 transition-colors daltonism-btn" data-mode="tritanopia">Tritanopie</button>
+                <button onclick="setDaltonism('achromatopsia')" class="px-4 py-2 rounded-full bg-white/5 text-sm hover:bg-white/20 transition-colors daltonism-btn" data-mode="achromatopsia">Achromatopsie</button>
+            </div>
+        </section>
+
+        <!-- Gradients & Extracteur -->
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10">
+                <h3 class="text-lg font-semibold mb-4">Dégradés générés</h3>
+                <div id="gradient-preview" class="h-32 rounded-xl mb-4 gradient-preview" style="--c1: #000; --c2: #000; --c3: #000;"></div>
+                <div class="flex gap-2">
+                    <button onclick="copyGradient('css')" class="flex-1 px-4 py-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors text-sm">CSS</button>
+                    <button onclick="copyGradient('tailwind')" class="flex-1 px-4 py-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors text-sm">Tailwind</button>
+                </div>
+            </div>
+
+            <div class="bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10">
+                <h3 class="text-lg font-semibold mb-4">Extraire depuis une image</h3>
+                <div id="drop-zone" class="drop-zone h-32 rounded-xl flex flex-col items-center justify-center gap-2 cursor-pointer" onclick="document.getElementById('image-input').click()">
+                    <svg class="w-8 h-8 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    <span class="text-sm text-white/40">Glisser-déposer ou cliquer</span>
+                </div>
+                <input type="file" id="image-input" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                <canvas id="image-canvas" class="hidden"></canvas>
+            </div>
+        </section>
+
+        <!-- Cartes de couleurs avec Sliders -->
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <div class="color-card group relative bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-white/20">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-xs text-white/40 uppercase tracking-widest mb-1">60% Dominant</p>
+                        <h3 class="text-lg font-semibold">Primary</h3>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="toggleLock('primary')" id="lock-primary" class="lock-btn p-2 hover:bg-white/10 rounded-lg transition-colors" title="Verrouiller cette couleur">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                            </svg>
+                        </button>
+                        <span class="text-xs bg-white/10 px-2 py-1 rounded text-white/60 flex items-center">Background</span>
+                    </div>
+                </div>
+                <div id="color-primary" class="h-32 rounded-xl mb-4 shadow-inner cursor-pointer hover:scale-[1.02] transition-transform" onclick="copyColor('primary')"></div>
+                
+                <!-- Sliders HSL -->
+                <div class="space-y-3 mb-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs w-4">H</span>
+                        <input type="range" class="slider" id="h-primary" min="0" max="360" oninput="updateFromSlider('primary')">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs w-4">S</span>
+                        <input type="range" class="slider" id="s-primary" min="0" max="100" oninput="updateFromSlider('primary')">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs w-4">L</span>
+                        <input type="range" class="slider" id="l-primary" min="0" max="100" oninput="updateFromSlider('primary')">
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center font-mono text-sm">
+                    <span id="hex-primary" class="text-white/60">#------</span>
+                    <button onclick="copyColor('primary')" class="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="color-card group relative bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-white/20">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-xs text-white/40 uppercase tracking-widest mb-1">30% Secondaire</p>
+                        <h3 class="text-lg font-semibold">Secondary</h3>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="toggleLock('secondary')" id="lock-secondary" class="lock-btn p-2 hover:bg-white/10 rounded-lg transition-colors" title="Verrouiller cette couleur">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                            </svg>
+                        </button>
+                        <span class="text-xs bg-white/10 px-2 py-1 rounded text-white/60 flex items-center">Sidebar/Card</span>
+                    </div>
+                </div>
+                <div id="color-secondary" class="h-32 rounded-xl mb-4 shadow-inner cursor-pointer hover:scale-[1.02] transition-transform" onclick="copyColor('secondary')"></div>
+                
+                <div class="space-y-3 mb-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs w-4">H</span>
+                        <input type="range" class="slider" id="h-secondary" min="0" max="360" oninput="updateFromSlider('secondary')">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs w-4">S</span>
+                        <input type="range" class="slider" id="s-secondary" min="0" max="100" oninput="updateFromSlider('secondary')">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs w-4">L</span>
+                        <input type="range" class="slider" id="l-secondary" min="0" max="100" oninput="updateFromSlider('secondary')">
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center font-mono text-sm">
+                    <span id="hex-secondary" class="text-white/60">#------</span>
+                    <button onclick="copyColor('secondary')" class="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="color-card group relative bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-white/20">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-xs text-white/40 uppercase tracking-widest mb-1">10% Accent</p>
+                        <h3 class="text-lg font-semibold">Accent</h3>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="toggleLock('accent')" id="lock-accent" class="lock-btn p-2 hover:bg-white/10 rounded-lg transition-colors" title="Verrouiller cette couleur">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                            </svg>
+                        </button>
+                        <span class="text-xs bg-white/10 px-2 py-1 rounded text-white/60 flex items-center">CTA/Highlight</span>
+                    </div>
+                </div>
+                <div id="color-accent" class="h-32 rounded-xl mb-4 shadow-inner cursor-pointer hover:scale-[1.02] transition-transform" onclick="copyColor('accent')"></div>
+                
+                <div class="space-y-3 mb-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs w-4">H</span>
+                        <input type="range" class="slider" id="h-accent" min="0" max="360" oninput="updateFromSlider('accent')">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs w-4">S</span>
+                        <input type="range" class="slider" id="s-accent" min="0" max="100" oninput="updateFromSlider('accent')">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs w-4">L</span>
+                        <input type="range" class="slider" id="l-accent" min="0" max="100" oninput="updateFromSlider('accent')">
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center font-mono text-sm">
+                    <span id="hex-accent" class="text-white/60">#------</span>
+                    <button onclick="copyColor('accent')" class="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Historique -->
+        <section class="bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">Historique récent</h3>
+                <button onclick="clearHistory()" class="text-sm text-white/40 hover:text-white transition-colors">Effacer</button>
+            </div>
+            <div id="history-container" class="flex gap-3 overflow-x-auto pb-2">
+                <p class="text-white/40 text-sm italic">Aucun historique...</p>
+            </div>
+        </section>
+
+        <!-- Export -->
+        <section class="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-6">
+                <div>
+                    <h3 class="text-xl font-semibold mb-2">Exporter la palette</h3>
+                    <p class="text-white/50 text-sm">Choisissez votre format d'export</p>
+                </div>
+                <div class="flex gap-2 bg-black/20 p-1 rounded-lg">
+                    <button onclick="setExportTab('css')" id="tab-css" class="tab-btn active px-4 py-2 rounded-md text-sm font-medium text-white/60 hover:text-white">CSS</button>
+                    <button onclick="setExportTab('tailwind')" id="tab-tailwind" class="tab-btn px-4 py-2 rounded-md text-sm font-medium text-white/60 hover:text-white">Tailwind</button>
+                    <button onclick="setExportTab('scss')" id="tab-scss" class="tab-btn px-4 py-2 rounded-md text-sm font-medium text-white/60 hover:text-white">SCSS</button>
+                    <button onclick="setExportTab('json')" id="tab-json" class="tab-btn px-4 py-2 rounded-md text-sm font-medium text-white/60 hover:text-white">JSON</button>
+                </div>
+            </div>
+            
+            <div class="relative mb-4">
+                <pre id="code-preview" class="p-4 bg-black/30 rounded-xl font-mono text-sm text-white/60 overflow-x-auto min-h-[120px]"></pre>
+                <button onclick="copyExport()" class="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors" title="Copier le code">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="flex gap-4 flex-wrap">
+                <button onclick="exportImage()" class="flex-1 px-6 py-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    Image PNG
+                </button>
+                <button onclick="sharePalette()" class="flex-1 px-6 py-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path>
+                    </svg>
+                    Partager URL
+                </button>
+                <button onclick="showQR()" class="flex-1 px-6 py-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 20h2v-4H6v4zm6-6h2v-4h-2v4zm-6 0h2v-4H6v4zm12-6h2V4h-2v4zM6 10h2V4H6v6zm6-6h2V4h-2v4z"></path>
+                    </svg>
+                    QR Code
+                </button>
+            </div>
+        </section>
+
+        <!-- WCAG Details -->
+        <section class="bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10">
+            <h3 class="text-lg font-semibold mb-4">Scores d'accessibilité WCAG 2.1</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="wcag-scores">
+                <!-- Généré dynamiquement -->
+            </div>
+        </section>
+
+        <!-- Features -->
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center py-8 border-t border-white/10">
+            <div class="space-y-2">
+                <div class="w-12 h-12 mx-auto rounded-full bg-white/5 flex items-center justify-center mb-3">
+                    <span class="text-2xl">🎨</span>
+                </div>
+                <h4 class="font-semibold">Mathématique</h4>
+                <p class="text-sm text-white/50">Algorithmes HSL stricts basés sur la théorie des couleurs</p>
+            </div>
+            <div class="space-y-2">
+                <div class="w-12 h-12 mx-auto rounded-full bg-white/5 flex items-center justify-center mb-3">
+                    <span class="text-2xl">🔒</span>
+                </div>
+                <h4 class="font-semibold">Verrouillage</h4>
+                <p class="text-sm text-white/50">Bloquez les couleurs pour générer des harmonies contrôlées</p>
+            </div>
+            <div class="space-y-2">
+                <div class="w-12 h-12 mx-auto rounded-full bg-white/5 flex items-center justify-center mb-3">
+                    <span class="text-2xl">♿</span>
+                </div>
+                <h4 class="font-semibold">WCAG 2.1</h4>
+                <p class="text-sm text-white/50">Calcul de contraste relatif pour l'accessibilité</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal QR Code -->
+    <div id="qr-modal" class="modal" onclick="closeQR(event)">
+        <div class="bg-white/10 backdrop-blur-xl p-8 rounded-3xl border border-white/20 max-w-sm w-full mx-4" onclick="event.stopPropagation()">
+            <h3 class="text-xl font-semibold mb-4 text-center">Scanner pour ouvrir</h3>
+            <div id="qrcode" class="flex justify-center mb-4 bg-white p-4 rounded-xl"></div>
+            <p class="text-sm text-white/60 text-center mb-4">Ou partagez cette URL directement</p>
+            <div class="flex gap-2">
+                <input type="text" id="share-url" readonly class="flex-1 bg-black/30 border border-white/10 rounded-lg px-4 py-2 text-sm font-mono">
+                <button onclick="copyShareUrl()" class="px-4 py-2 bg-white text-black rounded-lg font-medium hover:bg-white/90 transition-colors">Copier</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Favoris -->
+    <div id="favorites-modal" class="modal" onclick="closeFavorites(event)">
+        <div class="bg-white/10 backdrop-blur-xl p-8 rounded-3xl border border-white/20 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-semibold">Mes palettes favorites</h3>
+                <button onclick="closeFavorites()" class="p-2 hover:bg-white/10 rounded-lg">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div id="favorites-list" class="space-y-4">
+                <p class="text-white/40 text-center py-8">Aucune palette favorite...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Comparaison -->
+    <div id="comparison-modal" class="modal" onclick="closeComparison(event)">
+        <div class="bg-white/10 backdrop-blur-xl p-8 rounded-3xl border border-white/20 max-w-4xl w-full mx-4" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-semibold">Comparaison</h3>
+                <button onclick="closeComparison()" class="p-2 hover:bg-white/10 rounded-lg">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="comparison-view" id="comparison-container">
+                <!-- Généré dynamiquement -->
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast flex items-center gap-2">
+        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+        <span id="toast-message">Copié !</span>
+    </div>
+
+    <script>
+        // State
+        let currentPalette = { primary: '', secondary: '', accent: '' };
+        let currentHSL = { primary: {h:0, s:0, l:0}, secondary: {h:0, s:0, l:0}, accent: {h:0, s:0, l:0} };
+        let lockedColors = { primary: false, secondary: false, accent: false };
+        let currentExportTab = 'css';
+        let toastTimeout = null;
+        let history = JSON.parse(localStorage.getItem('colorHistory') || '[]');
+        let favorites = JSON.parse(localStorage.getItem('colorFavorites') || '[]');
+        let previousPalette = null;
+        let currentDaltonism = 'normal';
+
+        // Color Harmonies Algorithms
+        const ColorHarmonies = {
+            analogous: (baseHue) => ({
+                dominant:  { h: baseHue, s: 15, l: 95 },
+                secondary: { h: (baseHue + 30) % 360, s: 35, l: 40 },
+                accent:    { h: (baseHue + 60) % 360, s: 85, l: 50 }
+            }),
+            complementary: (baseHue) => ({
+                dominant:  { h: baseHue, s: 20, l: 90 },
+                secondary: { h: baseHue, s: 40, l: 25 },
+                accent:    { h: (baseHue + 180) % 360, s: 90, l: 50 }
+            }),
+            splitComplementary: (baseHue) => ({
+                dominant:  { h: baseHue, s: 15, l: 92 },
+                secondary: { h: (baseHue + 150) % 360, s: 50, l: 45 },
+                accent:    { h: (baseHue + 210) % 360, s: 85, l: 55 }
+            }),
+            monochromatic: (baseHue) => ({
+                dominant:  { h: baseHue, s: 10, l: 96 },
+                secondary: { h: baseHue, s: 25, l: 75 },
+                accent:    { h: baseHue, s: 80, l: 35 }
+            }),
+            triadic: (baseHue) => ({
+                dominant:  { h: baseHue, s: 20, l: 90 },
+                secondary: { h: (baseHue + 120) % 360, s: 50, l: 45 },
+                accent:    { h: (baseHue + 240) % 360, s: 70, l: 50 }
+            }),
+            tetradic: (baseHue) => ({
+                dominant:  { h: baseHue, s: 15, l: 92 },
+                secondary: { h: (baseHue + 90) % 360, s: 45, l: 40 },
+                accent:    { h: (baseHue + 180) % 360, s: 80, l: 50 }
+            })
+        };
+
+        // Daltonism matrices
+        const daltonismFilters = {
+            normal: 'none',
+            protanopia: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'protanopia\'%3E%3CfeColorMatrix type=\'matrix\' values=\'0.567 0.433 0 0 0 0.558 0.442 0 0 0 0 0.242 0.758 0 0 0 0 0 1 0\'/%3E%3C/filter%3E%3C/svg%3E#protanopia")',
+            deuteranopia: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'deuteranopia\'%3E%3CfeColorMatrix type=\'matrix\' values=\'0.625 0.375 0 0 0 0.7 0.3 0 0 0 0 0.3 0.7 0 0 0 0 0 1 0\'/%3E%3C/filter%3E%3C/svg%3E#deuteranopia")',
+            tritanopia: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'tritanopia\'%3E%3CfeColorMatrix type=\'matrix\' values=\'0.95 0.05 0 0 0 0 0.433 0.567 0 0 0 0.475 0.525 0 0 0 0 0 1 0\'/%3E%3C/filter%3E%3C/svg%3E#tritanopia")',
+            achromatopsia: 'grayscale(100%)'
+        };
+
+        // HSL to HEX conversion
+        function hslToHex(h, s, l) {
+            l /= 100;
+            const a = s * Math.min(l, 1 - l) / 100;
+            const f = n => {
+                const k = (n + h / 30) % 12;
+                const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+                return Math.round(255 * color).toString(16).padStart(2, '0');
+            };
+            return `#${f(0)}${f(8)}${f(4)}`.toUpperCase();
+        }
+
+        // HEX to HSL conversion
+        function hexToHsl(hex) {
+            let r = parseInt(hex.slice(1, 3), 16) / 255;
+            let g = parseInt(hex.slice(3, 5), 16) / 255;
+            let b = parseInt(hex.slice(5, 7), 16) / 255;
+
+            const max = Math.max(r, g, b), min = Math.min(r, g, b);
+            let h, s, l = (max + min) / 2;
+
+            if (max === min) {
+                h = s = 0;
+            } else {
+                const d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                    case g: h = (b - r) / d + 2; break;
+                    case b: h = (r - g) / d + 4; break;
+                }
+                h /= 6;
+            }
+
+            return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+        }
+
+        // WCAG 2.1 Relative Luminance
+        function getRelativeLuminance(hex) {
+            const rgb = hex.replace('#', '').match(/.{2}/g).map(x => {
+                const v = parseInt(x, 16) / 255;
+                return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+            });
+            return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+        }
+
+        function getContrastRatio(hex1, hex2) {
+            const l1 = getRelativeLuminance(hex1);
+            const l2 = getRelativeLuminance(hex2);
+            const lighter = Math.max(l1, l2);
+            const darker = Math.min(l1, l2);
+            return (lighter + 0.05) / (darker + 0.05);
+        }
+
+        function getAccessibleTextColor(bgHex) {
+            const whiteContrast = getContrastRatio(bgHex, '#FFFFFF');
+            const blackContrast = getContrastRatio(bgHex, '#000000');
+            return whiteContrast >= blackContrast ? '#FFFFFF' : '#000000';
+        }
+
+        function getWCAGLevel(ratio) {
+            if (ratio >= 7) return { level: 'AAA', color: 'text-green-400', bg: 'bg-green-400/20' };
+            if (ratio >= 4.5) return { level: 'AA', color: 'text-blue-400', bg: 'bg-blue-400/20' };
+            if (ratio >= 3) return { level: 'AA Large', color: 'text-yellow-400', bg: 'bg-yellow-400/20' };
+            return { level: 'Fail', color: 'text-red-400', bg: 'bg-red-400/20' };
+        }
+
+        // Clipboard with fallback
+        async function copyToClipboard(text) {
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    const textArea = document.createElement('textarea');
+                    textArea.value = text;
+                    textArea.style.position = 'fixed';
+                    textArea.style.left = '-9999px';
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                }
+                return true;
+            } catch (err) {
+                console.error('Copy failed:', err);
+                return false;
+            }
+        }
+
+        // Toast with debounce
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toast-message');
+            
+            if (toastTimeout) clearTimeout(toastTimeout);
+            
+            toastMessage.textContent = message;
+            toast.classList.remove('show');
+            void toast.offsetWidth;
+            toast.classList.add('show');
+            
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+
+        // Lock/Unlock colors
+        function toggleLock(colorType) {
+            lockedColors[colorType] = !lockedColors[colorType];
+            const btn = document.getElementById(`lock-${colorType}`);
+            if (lockedColors[colorType]) {
+                btn.classList.add('locked');
+                btn.innerHTML = `<svg class="w-4 h-4" fill="currentColor" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>`;
+            } else {
+                btn.classList.remove('locked');
+                btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>`;
+            }
+        }
+
+        // Generate palette
+        function generatePalette() {
+            // Sauvegarder l'ancienne palette pour comparaison
+            if (currentPalette.primary) {
+                previousPalette = { ...currentPalette };
+            }
+
+            const harmonyType = document.getElementById('harmony-select').value;
+            const baseHue = Math.floor(Math.random() * 360);
+            const palette = ColorHarmonies[harmonyType](baseHue);
+            
+            if (!lockedColors.primary) {
+                currentHSL.primary = { ...palette.dominant };
+                currentPalette.primary = hslToHex(palette.dominant.h, palette.dominant.s, palette.dominant.l);
+            }
+            if (!lockedColors.secondary) {
+                currentHSL.secondary = { ...palette.secondary };
+                currentPalette.secondary = hslToHex(palette.secondary.h, palette.secondary.s, palette.secondary.l);
+            }
+            if (!lockedColors.accent) {
+                currentHSL.accent = { ...palette.accent };
+                currentPalette.accent = hslToHex(palette.accent.h, palette.accent.s, palette.accent.l);
+            }
+            
+            addToHistory();
+            updateUI();
+        }
+
+        // Update UI
+        function updateUI() {
+            const { primary, secondary, accent } = currentPalette;
+            
+            document.getElementById('color-primary').style.backgroundColor = primary;
+            document.getElementById('hex-primary').textContent = primary;
+            document.getElementById('h-primary').value = currentHSL.primary.h;
+            document.getElementById('s-primary').value = currentHSL.primary.s;
+            document.getElementById('l-primary').value = currentHSL.primary.l;
+            
+            document.getElementById('color-secondary').style.backgroundColor = secondary;
+            document.getElementById('hex-secondary').textContent = secondary;
+            document.getElementById('h-secondary').value = currentHSL.secondary.h;
+            document.getElementById('s-secondary').value = currentHSL.secondary.s;
+            document.getElementById('l-secondary').value = currentHSL.secondary.l;
+            
+            document.getElementById('color-accent').style.backgroundColor = accent;
+            document.getElementById('hex-accent').textContent = accent;
+            document.getElementById('h-accent').value = currentHSL.accent.h;
+            document.getElementById('s-accent').value = currentHSL.accent.s;
+            document.getElementById('l-accent').value = currentHSL.accent.l;
+            
+            document.getElementById('preview-dominant').style.backgroundColor = primary;
+            document.getElementById('preview-secondary').style.backgroundColor = secondary;
+            document.getElementById('preview-accent').style.backgroundColor = accent;
+            
+            const primaryText = getAccessibleTextColor(primary);
+            const secondaryText = getAccessibleTextColor(secondary);
+            const accentText = getAccessibleTextColor(accent);
+            
+            document.getElementById('text-on-dominant').style.color = primaryText;
+            document.getElementById('text-on-dominant-sub').style.color = primaryText;
+            document.getElementById('btn-on-dominant').style.backgroundColor = secondary;
+            document.getElementById('btn-on-dominant').style.color = secondaryText;
+            
+            document.getElementById('text-on-secondary').style.color = secondaryText;
+            document.getElementById('preview-accent-container').style.color = primaryText;
+            document.getElementById('preview-accent').style.color = accentText;
+            
+            // Update gradient
+            document.getElementById('gradient-preview').style.setProperty('--c1', primary);
+            document.getElementById('gradient-preview').style.setProperty('--c2', secondary);
+            document.getElementById('gradient-preview').style.setProperty('--c3', accent);
+
+            // Update WCAG scores
+            updateWCAGScores();
+            updateExportPreview();
+            updateUrlParams();
+        }
+
+        // Update from sliders
+        function updateFromSlider(type) {
+            const h = parseInt(document.getElementById(`h-${type}`).value);
+            const s = parseInt(document.getElementById(`s-${type}`).value);
+            const l = parseInt(document.getElementById(`l-${type}`).value);
+            
+            currentHSL[type] = { h, s, l };
+            currentPalette[type] = hslToHex(h, s, l);
+            
+            // Auto-lock when manual adjustment
+            if (!lockedColors[type]) {
+                toggleLock(type);
+            }
+            
+            updateUI();
+        }
+
+        // WCAG Scores
+        function updateWCAGScores() {
+            const { primary, secondary, accent } = currentPalette;
+            const combinations = [
+                { bg: primary, text: secondary, label: 'Primary bg + Secondary text' },
+                { bg: primary, text: accent, label: 'Primary bg + Accent text' },
+                { bg: secondary, text: primary, label: 'Secondary bg + Primary text' },
+                { bg: secondary, text: accent, label: 'Secondary bg + Accent text' },
+                { bg: accent, text: primary, label: 'Accent bg + Primary text' },
+                { bg: accent, text: secondary, label: 'Accent bg + Secondary text' }
+            ];
+
+            const container = document.getElementById('wcag-scores');
+            container.innerHTML = combinations.map(combo => {
+                const ratio = getContrastRatio(combo.bg, combo.text).toFixed(2);
+                const wcag = getWCAGLevel(parseFloat(ratio));
+                return `
+                    <div class="bg-white/5 rounded-xl p-4 border border-white/10">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-6 h-6 rounded" style="background: ${combo.bg}"></div>
+                            <span class="text-xs">+</span>
+                            <div class="w-6 h-6 rounded" style="background: ${combo.text}"></div>
+                        </div>
+                        <p class="text-xs text-white/60 mb-1">${combo.label}</p>
+                        <div class="flex items-center justify-between">
+                            <span class="text-lg font-bold font-mono">${ratio}</span>
+                            <span class="px-2 py-1 rounded text-xs font-medium ${wcag.bg} ${wcag.color}">${wcag.level}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // History
+        function addToHistory() {
+            if (!currentPalette.primary) return;
+            
+            const paletteStr = JSON.stringify(currentPalette);
+            if (history.length > 0 && JSON.stringify(history[0]) === paletteStr) return;
+            
+            history.unshift({ ...currentPalette, timestamp: Date.now() });
+            if (history.length > 20) history.pop();
+            
+            localStorage.setItem('colorHistory', JSON.stringify(history));
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('history-container');
+            if (history.length === 0) {
+                container.innerHTML = '<p class="text-white/40 text-sm italic">Aucun historique...</p>';
+                return;
+            }
+            
+            container.innerHTML = history.map((item, index) => `
+                <div class="history-item flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden border border-white/10" onclick="loadPalette(${index})">
+                    <div style="height: 60%; background: ${item.primary}"></div>
+                    <div style="height: 30%; background: ${item.secondary}"></div>
+                    <div style="height: 10%; background: ${item.accent}"></div>
+                </div>
+            `).join('');
+        }
+
+        function loadPalette(index) {
+            previousPalette = { ...currentPalette };
+            currentPalette = { 
+                primary: history[index].primary, 
+                secondary: history[index].secondary, 
+                accent: history[index].accent 
+            };
+            currentHSL.primary = hexToHsl(currentPalette.primary);
+            currentHSL.secondary = hexToHsl(currentPalette.secondary);
+            currentHSL.accent = hexToHsl(currentPalette.accent);
+            updateUI();
+        }
+
+        function clearHistory() {
+            history = [];
+            localStorage.removeItem('colorHistory');
+            renderHistory();
+        }
+
+        // Favorites
+        function toggleFavoriteCurrent() {
+            const index = favorites.findIndex(f => 
+                f.primary === currentPalette.primary && 
+                f.secondary === currentPalette.secondary && 
+                f.accent === currentPalette.accent
+            );
+            
+            if (index > -1) {
+                favorites.splice(index, 1);
+                showToast('Retiré des favoris');
+            } else {
+                favorites.push({ ...currentPalette, timestamp: Date.now() });
+                showToast('Ajouté aux favoris !');
+            }
+            
+            localStorage.setItem('colorFavorites', JSON.stringify(favorites));
+            updateFavCount();
+            updateFavButton();
+        }
+
+        function updateFavCount() {
+            const count = document.getElementById('fav-count');
+            if (favorites.length > 0) {
+                count.textContent = favorites.length;
+                count.classList.remove('hidden');
+            } else {
+                count.classList.add('hidden');
+            }
+        }
+
+        function updateFavButton() {
+            const btn = document.querySelector('.fav-btn');
+            const isFav = favorites.some(f => 
+                f.primary === currentPalette.primary && 
+                f.secondary === currentPalette.secondary && 
+                f.accent === currentPalette.accent
+            );
+            
+            if (isFav) btn.classList.add('active');
+            else btn.classList.remove('active');
+        }
+
+        function openFavorites() {
+            renderFavorites();
+            document.getElementById('favorites-modal').classList.add('active');
+        }
+
+        function closeFavorites(e) {
+            if (!e || e.target.id === 'favorites-modal') {
+                document.getElementById('favorites-modal').classList.remove('active');
+            }
+        }
+
+        function renderFavorites() {
+            const list = document.getElementById('favorites-list');
+            if (favorites.length === 0) {
+                list.innerHTML = '<p class="text-white/40 text-center py-8">Aucune palette favorite...</p>';
+                return;
+            }
+            
+            list.innerHTML = favorites.map((item, index) => `
+                <div class="flex items-center gap-4 bg-white/5 rounded-xl p-4 border border-white/10">
+                    <div class="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer" onclick="loadFavorite(${index})">
+                        <div style="height: 60%; background: ${item.primary}"></div>
+                        <div style="height: 30%; background: ${item.secondary}"></div>
+                        <div style="height: 10%; background: ${item.accent}"></div>
+                    </div>
+                    <div class="flex-1 font-mono text-sm">
+                        <div class="flex items-center gap-2 mb-1">
+                            <div class="w-3 h-3 rounded-full" style="background: ${item.primary}"></div>
+                            <span class="text-white/60">${item.primary}</span>
+                        </div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <div class="w-3 h-3 rounded-full" style="background: ${item.secondary}"></div>
+                            <span class="text-white/60">${item.secondary}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full" style="background: ${item.accent}"></div>
+                            <span class="text-white/60">${item.accent}</span>
+                        </div>
+                    </div>
+                    <button onclick="removeFavorite(${index})" class="p-2 hover:bg-red-500/20 rounded-lg text-red-400 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function loadFavorite(index) {
+            previousPalette = { ...currentPalette };
+            currentPalette = { 
+                primary: favorites[index].primary, 
+                secondary: favorites[index].secondary, 
+                accent: favorites[index].accent 
+            };
+            currentHSL.primary = hexToHsl(currentPalette.primary);
+            currentHSL.secondary = hexToHsl(currentPalette.secondary);
+            currentHSL.accent = hexToHsl(currentPalette.accent);
+            updateUI();
+            closeFavorites();
+        }
+
+        function removeFavorite(index) {
+            favorites.splice(index, 1);
+            localStorage.setItem('colorFavorites', JSON.stringify(favorites));
+            renderFavorites();
+            updateFavCount();
+            updateFavButton();
+        }
+
+        // Comparison
+        function toggleComparison() {
+            if (!previousPalette) {
+                showToast('Générez d\'abord une nouvelle palette');
+                return;
+            }
+            renderComparison();
+            document.getElementById('comparison-modal').classList.add('active');
+        }
+
+        function closeComparison(e) {
+            if (!e || e.target.id === 'comparison-modal') {
+                document.getElementById('comparison-modal').classList.remove('active');
+            }
+        }
+
+        function renderComparison() {
+            const container = document.getElementById('comparison-container');
+            const palettes = [
+                { title: 'Précédente', data: previousPalette },
+                { title: 'Actuelle', data: currentPalette }
+            ];
+            
+            container.innerHTML = palettes.map(p => `
+                <div class="space-y-4">
+                    <h4 class="text-center font-semibold ${p.title === 'Actuelle' ? 'text-white' : 'text-white/60'}">${p.title}</h4>
+                    <div class="rounded-2xl overflow-hidden border border-white/10">
+                        <div class="h-32 flex items-center justify-center" style="background: ${p.data.primary}">
+                            <span class="text-2xl font-bold" style="color: ${getAccessibleTextColor(p.data.primary)}">Titre</span>
+                        </div>
+                        <div class="h-24 flex items-center justify-center" style="background: ${p.data.secondary}">
+                            <span class="text-lg" style="color: ${getAccessibleTextColor(p.data.secondary)}">Sidebar</span>
+                        </div>
+                        <div class="h-16 flex items-center justify-center" style="background: ${p.data.accent}">
+                            <span class="font-bold" style="color: ${getAccessibleTextColor(p.data.accent)}">CTA</span>
+                        </div>
+                    </div>
+                    <div class="font-mono text-sm space-y-1 text-center">
+                        <div class="text-white/60">${p.data.primary}</div>
+                        <div class="text-white/60">${p.data.secondary}</div>
+                        <div class="text-white/60">${p.data.accent}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+                // Daltonism
+        function setDaltonism(mode) {
+            currentDaltonism = mode;
+            const filters = document.querySelectorAll('.daltonism-filter');
+            filters.forEach(el => {
+                el.style.filter = daltonismFilters[mode];
+            });
+            
+            document.querySelectorAll('.daltonism-btn').forEach(btn => {
+                btn.classList.remove('active', 'bg-white/10');
+                btn.classList.add('bg-white/5');
+                if (btn.dataset.mode === mode) {
+                    btn.classList.add('active', 'bg-white/10');
+                    btn.classList.remove('bg-white/5');
+                }
+            });
+        }
+
+        // Image Upload & Color Extraction
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    extractColorsFromImage(img);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function extractColorsFromImage(img) {
+            const canvas = document.getElementById('image-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Resize for performance
+            const size = 100;
+            canvas.width = size;
+            canvas.height = size;
+            ctx.drawImage(img, 0, 0, size, size);
+            
+            const imageData = ctx.getImageData(0, 0, size, size).data;
+            const colorCounts = {};
+            
+            // Sample pixels
+            for (let i = 0; i < imageData.length; i += 16) {
+                const r = imageData[i];
+                const g = imageData[i + 1];
+                const b = imageData[i + 2];
+                
+                // Quantize colors
+                const qr = Math.round(r / 32) * 32;
+                const qg = Math.round(g / 32) * 32;
+                const qb = Math.round(b / 32) * 32;
+                
+                const hex = `#${qr.toString(16).padStart(2,'0')}${qg.toString(16).padStart(2,'0')}${qb.toString(16).padStart(2,'0')}`.toUpperCase();
+                colorCounts[hex] = (colorCounts[hex] || 0) + 1;
+            }
+            
+            // Get top 3 colors
+            const sorted = Object.entries(colorCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 3)
+                .map(x => x[0]);
+            
+            if (sorted.length >= 3) {
+                previousPalette = { ...currentPalette };
+                currentPalette = {
+                    primary: sorted[0],
+                    secondary: sorted[1],
+                    accent: sorted[2]
+                };
+                currentHSL.primary = hexToHsl(currentPalette.primary);
+                currentHSL.secondary = hexToHsl(currentPalette.secondary);
+                currentHSL.accent = hexToHsl(currentPalette.accent);
+                
+                // Reset locks
+                Object.keys(lockedColors).forEach(key => {
+                    if (lockedColors[key]) toggleLock(key);
+                });
+                
+                addToHistory();
+                updateUI();
+                showToast('Couleurs extraites !');
+            }
+        }
+
+        // Drag & Drop
+        const dropZone = document.getElementById('drop-zone');
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+        
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    const img = new Image();
+                    img.onload = function() {
+                        extractColorsFromImage(img);
+                    };
+                    img.src = evt.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Export tabs
+        function setExportTab(tab) {
+            currentExportTab = tab;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            updateExportPreview();
+        }
+
+        function updateExportPreview() {
+            const { primary, secondary, accent } = currentPalette;
+            const preview = document.getElementById('code-preview');
+            
+            switch(currentExportTab) {
+                case 'css':
+                    preview.textContent = `:root {
+ --color-primary: ${primary};   /* 60% - Dominant */
+ --color-secondary: ${secondary}; /* 30% - Secondaire */
+ --color-accent: ${accent};    /* 10% - Accent */
+}`;
+                    break;
+                case 'tailwind':
+                    preview.textContent = `// tailwind.config.js
+module.exports = {
+ theme: {
+   extend: {
+     colors: {
+       primary: '${primary}',      // 60% - Dominant
+       secondary: '${secondary}',  // 30% - Secondaire
+       accent: '${accent}',        // 10% - Accent
+     }
+   }
+ }
+}`;
+                    break;
+                case 'scss':
+                    preview.textContent = `$color-primary: ${primary};   // 60% - Dominant
+$color-secondary: ${secondary}; // 30% - Secondaire
+$color-accent: ${accent};    // 10% - Accent
+
+:root {
+ --color-primary: #{$color-primary};
+ --color-secondary: #{$color-secondary};
+ --color-accent: #{$color-accent};
+}`;
+                    break;
+                case 'json':
+                    preview.textContent = JSON.stringify({
+                        primary: primary,
+                        secondary: secondary,
+                        accent: accent,
+                        rule: "60-30-10"
+                    }, null, 2);
+                    break;
+            }
+        }
+
+        // Copy functions
+        async function copyColor(type) {
+            const name = type === 'primary' ? 'Primary (60%)' : type === 'secondary' ? 'Secondary (30%)' : 'Accent (10%)';
+            const success = await copyToClipboard(currentPalette[type]);
+            if (success) showToast(`${name} copié !`);
+        }
+
+        async function copyExport() {
+            const code = document.getElementById('code-preview').textContent;
+            const success = await copyToClipboard(code);
+            if (success) showToast('Code copié !');
+        }
+
+        function copyGradient(format) {
+            const { primary, secondary, accent } = currentPalette;
+            let code;
+            if (format === 'css') {
+                code = `background: linear-gradient(90deg, ${primary} 0%, ${secondary} 50%, ${accent} 100%);`;
+            } else {
+                code = `bg-gradient-to-r from-[${primary}] via-[${secondary}] to-[${accent}]`;
+            }
+            copyToClipboard(code);
+            showToast('Gradient copié !');
+        }
+
+        // Export Image
+        function exportImage() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1200;
+            canvas.height = 630;
+            const ctx = canvas.getContext('2d');
+            
+            const { primary, secondary, accent } = currentPalette;
+            
+            // Background
+            ctx.fillStyle = primary;
+            ctx.fillRect(0, 0, 1200, 630);
+            
+            // 30% section
+            ctx.fillStyle = secondary;
+            ctx.fillRect(0, 400, 360, 230);
+            
+            // 10% accent
+            ctx.fillStyle = accent;
+            ctx.fillRect(840, 400, 360, 230);
+            
+            // Text
+            ctx.fillStyle = getAccessibleTextColor(primary);
+            ctx.font = 'bold 48px Space Grotesk, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('ColorHarmony Pro', 600, 200);
+            
+            ctx.font = '24px JetBrains Mono, monospace';
+            ctx.fillText(`${primary} · ${secondary} · ${accent}`, 600, 280);
+            
+            ctx.font = '18px Space Grotesk, sans-serif';
+            ctx.fillText('60-30-10 Rule', 600, 320);
+            
+            // Download
+            const link = document.createElement('a');
+            link.download = `palette-${Date.now()}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+            
+            showToast('Image téléchargée !');
+        }
+
+        // Share & QR
+        function updateUrlParams() {
+            const params = new URLSearchParams();
+            params.set('p', currentPalette.primary.replace('#', ''));
+            params.set('s', currentPalette.secondary.replace('#', ''));
+            params.set('a', currentPalette.accent.replace('#', ''));
+            window.history.replaceState({}, '', `${window.location.pathname}?${params}`);
+        }
+
+        function loadFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const p = params.get('p');
+            const s = params.get('s');
+            const a = params.get('a');
+            
+            if (p && s && a) {
+                currentPalette = {
+                    primary: `#${p}`,
+                    secondary: `#${s}`,
+                    accent: `#${a}`
+                };
+                currentHSL.primary = hexToHsl(currentPalette.primary);
+                currentHSL.secondary = hexToHsl(currentPalette.secondary);
+                currentHSL.accent = hexToHsl(currentPalette.accent);
+                return true;
+            }
+            return false;
+        }
+
+        function sharePalette() {
+            const url = window.location.href;
+            copyToClipboard(url);
+            showToast('URL copiée !');
+        }
+
+        function showQR() {
+            const modal = document.getElementById('qr-modal');
+            const container = document.getElementById('qrcode');
+            const urlInput = document.getElementById('share-url');
+            
+            container.innerHTML = '';
+            const url = window.location.href;
+            urlInput.value = url;
+            
+            new QRCode(container, {
+                text: url,
+                width: 200,
+                height: 200,
+                colorDark: '#000000',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.M
+            });
+            
+            modal.classList.add('active');
+        }
+
+        function closeQR(e) {
+            if (!e || e.target.id === 'qr-modal') {
+                document.getElementById('qr-modal').classList.remove('active');
+            }
+        }
+
+        function copyShareUrl() {
+            const url = document.getElementById('share-url').value;
+            copyToClipboard(url);
+            showToast('URL copiée !');
+        }
+
+        // Undo/Redo with keyboard
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && e.target === document.body) {
+                e.preventDefault();
+                generatePalette();
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                if (previousPalette) {
+                    const temp = { ...currentPalette };
+                    currentPalette = { ...previousPalette };
+                    previousPalette = temp;
+                    currentHSL.primary = hexToHsl(currentPalette.primary);
+                    currentHSL.secondary = hexToHsl(currentPalette.secondary);
+                    currentHSL.accent = hexToHsl(currentPalette.accent);
+                    updateUI();
+                    showToast('Annulé');
+                }
+            }
+        });
+
+        // Event listeners
+        document.getElementById('harmony-select').addEventListener('change', generatePalette);
+
+        // Initialize
+        window.addEventListener('DOMContentLoaded', () => {
+            if (!loadFromUrl()) {
+                generatePalette();
+            } else {
+                updateUI();
+            }
+            renderHistory();
+            updateFavCount();
+        });
+    </script>
+</body>
+</html>
